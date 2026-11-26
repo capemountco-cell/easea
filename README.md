@@ -1,6 +1,9 @@
 # Easea
 
-Create a blank page
+AI video editor: record or import talking-to-camera videos and get the first cut made for you.
+
+- **iOS and macOS app**: see [`apple/README.md`](apple/README.md).
+- **Web**: the Lovable project below.
 
 This project was built with [Lovable](https://lovable.dev).
 
