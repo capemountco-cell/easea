@@ -129,15 +129,25 @@ public struct CutReport: Codable, Hashable, Sendable {
     public var fillersRemoved: Int
     /// Rough estimate of how long a person would spend making the same cuts by hand.
     public var estimatedTimeSaved: Double
+    /// Tangents and off-script talk removed (only the Claude editor judges these).
+    public var ramblingRemoved: Int?
+    /// Who made the decisions, e.g. "Claude" or "On-device".
+    public var editor: String?
+    /// One-sentence explanation of the edit, when the editor gives one.
+    public var summary: String?
 
     public init(footageDuration: Double, finalDuration: Double, trimCount: Int,
-                retakesRemoved: Int, fillersRemoved: Int, estimatedTimeSaved: Double) {
+                retakesRemoved: Int, fillersRemoved: Int, estimatedTimeSaved: Double,
+                ramblingRemoved: Int? = nil, editor: String? = nil, summary: String? = nil) {
         self.footageDuration = footageDuration
         self.finalDuration = finalDuration
         self.trimCount = trimCount
         self.retakesRemoved = retakesRemoved
         self.fillersRemoved = fillersRemoved
         self.estimatedTimeSaved = estimatedTimeSaved
+        self.ramblingRemoved = ramblingRemoved
+        self.editor = editor
+        self.summary = summary
     }
 }
 

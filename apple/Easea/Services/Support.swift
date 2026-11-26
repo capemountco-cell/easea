@@ -17,6 +17,19 @@ final class AppSettings {
     var defaultOverlapAudio: Bool {
         didSet { UserDefaults.standard.set(defaultOverlapAudio, forKey: "defaultOverlapAudio") }
     }
+    /// Claude (via the Easea backend) or the on-device rules.
+    var editorMode: EditorMode {
+        didSet { UserDefaults.standard.set(editorMode.rawValue, forKey: "editorMode") }
+    }
+    var pace: EditPace {
+        didSet { UserDefaults.standard.set(pace.rawValue, forKey: "pace") }
+    }
+    var plannerURL: String {
+        didSet { UserDefaults.standard.set(plannerURL, forKey: "plannerURL") }
+    }
+    var appToken: String {
+        didSet { UserDefaults.standard.set(appToken, forKey: "appToken") }
+    }
 
     init() {
         if let data = UserDefaults.standard.data(forKey: "cutOptions"),
@@ -25,7 +38,12 @@ final class AppSettings {
         } else {
             cutOptions = CutOptions()
         }
-        defaultOverlapAudio = UserDefaults.standard.bool(forKey: "defaultOverlapAudio")
+        let defaults = UserDefaults.standard
+        defaultOverlapAudio = defaults.bool(forKey: "defaultOverlapAudio")
+        editorMode = defaults.string(forKey: "editorMode").flatMap(EditorMode.init(rawValue:)) ?? .claude
+        pace = defaults.string(forKey: "pace").flatMap(EditPace.init(rawValue:)) ?? .natural
+        plannerURL = defaults.string(forKey: "plannerURL") ?? AppConfig.defaultPlannerURL
+        appToken = defaults.string(forKey: "appToken") ?? AppConfig.defaultAppToken
     }
 
     private func save() {

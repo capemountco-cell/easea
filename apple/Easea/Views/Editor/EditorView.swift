@@ -49,7 +49,8 @@ struct EditorView: View {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button("Show time saved", systemImage: "stopwatch") { showReport = true }
-                    Button("Re-cut with current settings", systemImage: "wand.and.stars") { recut() }
+                    Button("Ask Claude to re-edit", systemImage: "sparkles") { queue.askClaudeAgain(project.id) }
+                    Button("Rebuild with current settings", systemImage: "slider.horizontal.3") { recut() }
                 } label: { Image(systemName: "ellipsis.circle") }
             }
         }
@@ -208,10 +209,21 @@ struct EditorView: View {
                     .font(.footnote).foregroundStyle(.secondary)
             }
             if let report = project.report {
-                HStack {
-                    Pill(text: "\(report.trimCount) trims", systemImage: "scissors")
-                    Pill(text: "\(report.retakesRemoved) retakes", systemImage: "arrow.counterclockwise")
-                    Pill(text: "\(report.fillersRemoved) fillers", systemImage: "text.badge.minus")
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack {
+                        if let editor = report.editor {
+                            Pill(text: "Edited by \(editor)", systemImage: editor == "Claude" ? "sparkles" : "iphone")
+                        }
+                        Pill(text: "\(report.trimCount) trims", systemImage: "scissors")
+                        Pill(text: "\(report.retakesRemoved) retakes", systemImage: "arrow.counterclockwise")
+                        Pill(text: "\(report.fillersRemoved) fillers", systemImage: "text.badge.minus")
+                        if let rambling = report.ramblingRemoved, rambling > 0 {
+                            Pill(text: "\(rambling) tangents", systemImage: "text.redaction")
+                        }
+                    }
+                }
+                if let summary = report.summary {
+                    Text(summary).font(.footnote).foregroundStyle(.secondary)
                 }
             }
         }

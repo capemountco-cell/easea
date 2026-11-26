@@ -35,13 +35,21 @@ final class CutQueue {
         startIfNeeded()
     }
 
-    /// Re-runs only the decision step with current settings, reusing transcripts. Instant.
+    /// Rebuilds clips with current settings from saved transcripts (and Claude's saved decisions). Instant.
     func recut(_ id: UUID) {
         guard var p = store.project(id), let analyses = p.analyses else { enqueue([id]); return }
-        let (edl, report) = AutoCutEngine(options: settings.cutOptions).makeCut(sources: analyses)
+        let engine = AutoCutEngine(options: settings.cutOptions)
+        var (edl, report) = p.aiPlan.map { engine.makeCut(sources: analyses, plan: $0) } ?? engine.makeCut(sources: analyses)
+        report.editor = p.aiPlan == nil ? "On-device" : "Claude"
         p.edl = edl
         p.report = report
         store.update(p)
+    }
+
+    /// Sends the saved transcript to Claude again for a fresh edit (no re-transcription).
+    func askClaudeAgain(_ id: UUID) {
+        store.mutate(id) { $0.aiPlan = nil }
+        enqueue([id])
     }
 
     func cancel(_ id: UUID) {
@@ -75,13 +83,14 @@ final class CutQueue {
     private func process(_ id: UUID) async {
         guard let project = store.project(id) else { return }
         store.mutate(id) { $0.status = .processing }
-        let pipeline = CutPipeline(options: settings.cutOptions)
+        let pipeline = CutPipeline(options: settings.cutOptions, claude: ClaudeEditor(settings: settings))
         let job = Task.detached(priority: .userInitiated) { [store] () async throws -> CutPipeline.Output in
             let urls = await store.sourceURLs(for: project)
             return try await pipeline.run(
                 sourceURLs: urls,
                 durations: project.sources.map(\.duration),
-                cachedAnalyses: project.analyses
+                cachedAnalyses: project.analyses,
+                cachedPlan: project.aiPlan
             ) { value, label in
                 Task { @MainActor in
                     store.updateTransient(id) { $0.progress = value; $0.progressLabel = label }
@@ -99,6 +108,12 @@ final class CutQueue {
                 $0.edl = output.edl
                 $0.report = output.report
                 $0.captions = output.captions
+                $0.aiPlan = output.plan
+                $0.reportSeen = false
+                if let title = output.plan?.title.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty,
+                   $0.title.hasPrefix(ProjectStore.defaultTitle(date: $0.createdAt)) {
+                    $0.title = title
+                }
                 $0.status = .ready
                 $0.progress = 1
             }

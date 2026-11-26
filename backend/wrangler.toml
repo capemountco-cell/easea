@@ -1,0 +1,8 @@
+name = "easea-cut-planner"
+main = "src/index.ts"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Secrets (never commit values):
+#   wrangler secret put ANTHROPIC_API_KEY
+#   wrangler secret put EASEA_APP_TOKEN   # shared token the app sends in X-Easea-Token

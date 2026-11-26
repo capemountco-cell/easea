@@ -101,6 +101,32 @@ final class AutoCutEngineTests: XCTestCase {
         XCTAssertEqual(timed[0].start, 0, accuracy: 0.001)
     }
 
+    func testAppliesClaudePlan() {
+        // Claude decided: drop the first take (words 0-3) and the filler "um" (word 8).
+        let w = words("hey guys today I | hey guys today I um want this")
+        let source = SourceAnalysis(duration: 9, words: w)
+        let plan = CutPlan(cuts: [
+            CutPlan.Cut(source: 0, firstWord: 0, lastWord: 3, reason: "retake"),
+            CutPlan.Cut(source: 0, firstWord: 8, lastWord: 8, reason: "filler"),
+        ], summary: "Kept the second take.")
+        let (edl, report) = AutoCutEngine().makeCut(sources: [source], plan: plan)
+        XCTAssertEqual(keptText(edl, [source]), "hey guys today I want this")
+        XCTAssertEqual(report.retakesRemoved, 1)
+        XCTAssertEqual(report.fillersRemoved, 1)
+        XCTAssertEqual(report.ramblingRemoved, 0)
+        XCTAssertEqual(report.summary, "Kept the second take.")
+    }
+
+    func testPlanIgnoresOutOfRangeCutsAndAppliesCorrections() {
+        let source = SourceAnalysis(duration: 3, words: words("try brain tree today"))
+        let plan = CutPlan(cuts: [CutPlan.Cut(source: 2, firstWord: 0, lastWord: 5, reason: "rambling")],
+                           corrections: [CutPlan.Correction(source: 0, word: 1, text: "BrainTree")])
+        let corrected = plan.applyingCorrections(to: [source])
+        XCTAssertEqual(corrected[0].words[1].text, "BrainTree")
+        let (edl, _) = AutoCutEngine().makeCut(sources: corrected, plan: plan)
+        XCTAssertEqual(edl.clips.count, 1)
+    }
+
     private func keptText(_ edl: EditDecisionList, _ sources: [SourceAnalysis]) -> String {
         edl.clips.flatMap { clip in
             sources[clip.sourceIndex].words.filter { $0.start >= clip.start - 0.001 && $0.end <= clip.end + 0.001 }.map(\.text)

@@ -13,6 +13,35 @@ struct YouView: View {
         NavigationStack {
             Form {
                 Section {
+                    Picker("Editor", selection: $settings.editorMode) {
+                        ForEach(EditorMode.allCases) { Text($0.label).tag($0) }
+                    }
+                    if settings.editorMode == .claude {
+                        Picker("Pace", selection: $settings.pace) {
+                            ForEach(EditPace.allCases) { Text($0.label).tag($0) }
+                        }
+                        TextField("Server address", text: $settings.plannerURL, prompt: Text("https://…workers.dev"))
+                            .autocorrectionDisabled()
+                            #if os(iOS)
+                            .textInputAutocapitalization(.never)
+                            .keyboardType(.URL)
+                            #endif
+                        SecureField("App token", text: $settings.appToken)
+                        if ClaudeEditor(settings: settings) == nil {
+                            Label("Add your Easea server address to use Claude. Until then, cuts use the on-device editor.",
+                                  systemImage: "exclamationmark.triangle")
+                                .font(.footnote).foregroundStyle(.orange)
+                        }
+                    }
+                } header: {
+                    Text("AI editor")
+                } footer: {
+                    Text(settings.editorMode == .claude
+                         ? "Claude reads your transcript and decides what to cut: retakes, false starts, filler and rambling. Only the text and word timings are sent, never your video. If Claude can't be reached, Easea uses its on-device editor."
+                         : "Edits are made on this device with rules for retakes, filler words and pauses. Nothing is sent anywhere.")
+                }
+
+                Section {
                     Toggle("Remove retakes", isOn: $settings.cutOptions.removeRetakes)
                     Toggle("Remove filler words (um, uh)", isOn: $settings.cutOptions.removeFillers)
                     LabeledContent("Longest pause kept") {
@@ -35,7 +64,7 @@ struct YouView: View {
                 } header: {
                     Text("Automatic cut")
                 } footer: {
-                    Text("Easea keeps the last take of each line you repeat and trims pauses. Changes apply to new cuts, or use “Re-cut” in the editor.")
+                    Text("These apply to both editors. Pause and silence settings shape the final clips; use “Rebuild with current settings” in the editor to apply them to an existing cut.")
                 }
 
                 Section("Notifications") {
@@ -49,7 +78,10 @@ struct YouView: View {
                 }
 
                 Section("Privacy") {
-                    Label("Transcription and editing run on this device. Your videos aren't uploaded.", systemImage: "lock.shield")
+                    Label(settings.editorMode == .claude
+                          ? "Transcription runs on this device. Your videos are never uploaded; only transcripts go to Claude for editing."
+                          : "Transcription and editing run on this device. Nothing is uploaded.",
+                          systemImage: "lock.shield")
                         .font(.footnote)
                 }
 

@@ -102,6 +102,8 @@ struct Project: Codable, Hashable, Identifiable {
     var analyses: [SourceAnalysis]?
     var edl: EditDecisionList?
     var report: CutReport?
+    /// The Claude editor's decisions, kept so re-cuts don't need another request.
+    var aiPlan: CutPlan?
     /// Whether the "time saved" card has been shown for the current cut.
     var reportSeen = false
 

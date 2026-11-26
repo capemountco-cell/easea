@@ -147,6 +147,13 @@ struct CutReadyView: View {
                     Text("saved vs cutting it yourself").foregroundStyle(.secondary)
                     Text("\(report.footageDuration.clockString) of footage · \(report.trimCount) trims · \(report.finalDuration.clockString) final")
                         .font(.footnote).foregroundStyle(.secondary)
+                    if let summary = report.summary {
+                        Label(summary, systemImage: report.editor == "Claude" ? "sparkles" : "info.circle")
+                            .font(.footnote)
+                            .multilineTextAlignment(.leading)
+                            .padding(.horizontal)
+                            .padding(.top, 4)
+                    }
                 }
                 .padding(.vertical, 24)
                 .frame(maxWidth: .infinity)

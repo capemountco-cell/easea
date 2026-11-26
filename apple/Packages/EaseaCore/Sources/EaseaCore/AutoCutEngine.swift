@@ -41,8 +41,8 @@ public struct AutoCutEngine: Sendable {
         var tokens: [String] { words.map(\.word.normalized).filter { !$0.isEmpty } }
     }
 
+    /// On-device editing with rules: retakes, restarts, fillers and pauses.
     public func makeCut(sources: [SourceAnalysis]) -> (EditDecisionList, CutReport) {
-        let footage = sources.reduce(0) { $0 + $1.duration }
         var retakes = 0
         var fillers = 0
 
@@ -66,10 +66,44 @@ public struct AutoCutEngine: Sendable {
             retakes = removed
         }
 
-        // 3. Build keep ranges around remaining speech.
+        var kept = Array(repeating: [Word](), count: sources.count)
+        for w in phrases.flatMap(\.words) { kept[w.source].append(w.word) }
+        return assemble(sources: sources, kept: kept, retakes: retakes, fillers: fillers, rambling: nil)
+    }
+
+    /// Applies an edit decided elsewhere (the Claude editor): `plan` names the words to drop;
+    /// this engine turns the remaining words into tight clips.
+    public func makeCut(sources: [SourceAnalysis], plan: CutPlan) -> (EditDecisionList, CutReport) {
+        var removed = Set<WordRef>()
+        var retakes = 0, fillers = 0, rambling = 0
+        for cut in plan.cuts where sources.indices.contains(cut.source) {
+            let count = sources[cut.source].words.count
+            let lo = max(0, min(cut.firstWord, cut.lastWord)), hi = min(count - 1, max(cut.firstWord, cut.lastWord))
+            guard lo <= hi else { continue }
+            for i in lo...hi { removed.insert(WordRef(source: cut.source, index: i)) }
+            switch cut.reason {
+            case "filler": fillers += 1
+            case "rambling", "off_script": rambling += 1
+            default: retakes += 1
+            }
+        }
+        let kept = sources.enumerated().map { s, source in
+            source.words.enumerated()
+                .filter { !removed.contains(WordRef(source: s, index: $0.offset)) }
+                .map(\.element)
+                .sorted { $0.start < $1.start }
+        }
+        var (edl, report) = assemble(sources: sources, kept: kept, retakes: retakes, fillers: fillers, rambling: rambling)
+        report.summary = plan.summary.isEmpty ? nil : plan.summary
+        return (edl, report)
+    }
+
+    /// Builds clips around the kept words of each source.
+    func assemble(sources: [SourceAnalysis], kept: [[Word]], retakes: Int, fillers: Int, rambling: Int?) -> (EditDecisionList, CutReport) {
+        let footage = sources.reduce(0) { $0 + $1.duration }
         var clips: [Clip] = []
         for (i, source) in sources.enumerated() {
-            let words = phrases.flatMap(\.words).filter { $0.source == i }.map(\.word)
+            let words = kept[i]
             if words.isEmpty {
                 // No speech recognized: fall back to loudness so non-verbal clips aren't lost.
                 if source.words.isEmpty, let loudness = source.loudness {
@@ -95,7 +129,8 @@ public struct AutoCutEngine: Sendable {
             trimCount: trims,
             retakesRemoved: retakes,
             fillersRemoved: fillers,
-            estimatedTimeSaved: Self.estimateManualEditTime(footage: footage, trims: trims)
+            estimatedTimeSaved: Self.estimateManualEditTime(footage: footage, trims: trims),
+            ramblingRemoved: rambling
         )
         return (edl, report)
     }
