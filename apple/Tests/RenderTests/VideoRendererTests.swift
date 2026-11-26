@@ -42,55 +42,65 @@ final class VideoRendererTests: XCTestCase {
         let sampleRate = 44_100
         let chunk = 4_410
         let audioChunks = Int(((videoSeconds + audioExtra) * Double(sampleRate)) / Double(chunk))
-        var frame = 0, audioIndex = 0
 
         var asbd = AudioStreamBasicDescription(
             mSampleRate: Double(sampleRate), mFormatID: kAudioFormatLinearPCM,
             mFormatFlags: kLinearPCMFormatFlagIsSignedInteger | kLinearPCMFormatFlagIsPacked,
             mBytesPerPacket: 2, mFramesPerPacket: 1, mBytesPerFrame: 2, mChannelsPerFrame: 1,
             mBitsPerChannel: 16, mReserved: 0)
-        var format: CMAudioFormatDescription?
+        var formatOut: CMAudioFormatDescription?
         CMAudioFormatDescriptionCreate(allocator: nil, asbd: &asbd, layoutSize: 0, layout: nil, magicCookieSize: 0,
-                                       magicCookie: nil, extensions: nil, formatDescriptionOut: &format)
+                                       magicCookie: nil, extensions: nil, formatDescriptionOut: &formatOut)
+        let format = try XCTUnwrap(formatOut)
 
-        let deadline = Date().addingTimeInterval(30)
-        while frame < frameCount || audioIndex < audioChunks {
-            XCTAssertLessThan(Date(), deadline, "Timed out writing the test video")
-            if Date() > deadline { break }
-            let videoTime = Double(frame) / Double(fps)
-            let audioTime = Double(audioIndex * chunk) / Double(sampleRate)
-            let writeVideo = frame < frameCount && (audioIndex >= audioChunks || videoTime <= audioTime)
-            if writeVideo {
-                guard video.isReadyForMoreMediaData, let pool = adaptor.pixelBufferPool else { usleep(1_000); continue }
-                var buffer: CVPixelBuffer?
-                CVPixelBufferPoolCreatePixelBuffer(nil, pool, &buffer)
-                guard let buffer else { XCTFail("No pixel buffer"); break }
-                CVPixelBufferLockBaseAddress(buffer, [])
-                memset(CVPixelBufferGetBaseAddress(buffer), Int32(frame * 4 % 255), CVPixelBufferGetDataSize(buffer))
-                CVPixelBufferUnlockBaseAddress(buffer, [])
-                adaptor.append(buffer, withPresentationTime: CMTime(value: CMTimeValue(frame), timescale: CMTimeScale(fps)))
-                frame += 1
-            } else {
-                guard audio.isReadyForMoreMediaData, let format else { usleep(1_000); continue }
-                let bytes = chunk * 2
-                var block: CMBlockBuffer?
-                CMBlockBufferCreateWithMemoryBlock(allocator: nil, memoryBlock: nil, blockLength: bytes, blockAllocator: nil,
-                                                   customBlockSource: nil, offsetToData: 0, dataLength: bytes,
-                                                   flags: kCMBlockBufferAssureMemoryNowFlag, blockBufferOut: &block)
-                guard let block else { XCTFail("No block buffer"); break }
-                CMBlockBufferFillDataBytes(with: 0, blockBuffer: block, offsetIntoDestination: 0, dataLength: bytes)
-                var sample: CMSampleBuffer?
-                CMAudioSampleBufferCreateReadyWithPacketDescriptions(
-                    allocator: nil, dataBuffer: block, formatDescription: format, sampleCount: chunk,
-                    presentationTimeStamp: CMTime(value: CMTimeValue(audioIndex * chunk), timescale: CMTimeScale(sampleRate)),
-                    packetDescriptions: nil, sampleBufferOut: &sample)
-                guard let sample else { XCTFail("No audio sample"); break }
-                audio.append(sample)
-                audioIndex += 1
+        // Each input pulls its own data when the writer is ready, so neither can starve the other.
+        async let videoDone: Void = withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
+            var frame = 0
+            video.requestMediaDataWhenReady(on: DispatchQueue(label: "test.video")) {
+                while video.isReadyForMoreMediaData {
+                    guard frame < frameCount, let pool = adaptor.pixelBufferPool else {
+                        video.markAsFinished()
+                        done.resume()
+                        return
+                    }
+                    var buffer: CVPixelBuffer?
+                    CVPixelBufferPoolCreatePixelBuffer(nil, pool, &buffer)
+                    guard let buffer else { continue }
+                    CVPixelBufferLockBaseAddress(buffer, [])
+                    memset(CVPixelBufferGetBaseAddress(buffer), Int32(frame * 4 % 255), CVPixelBufferGetDataSize(buffer))
+                    CVPixelBufferUnlockBaseAddress(buffer, [])
+                    adaptor.append(buffer, withPresentationTime: CMTime(value: CMTimeValue(frame), timescale: CMTimeScale(fps)))
+                    frame += 1
+                }
             }
         }
-        video.markAsFinished()
-        audio.markAsFinished()
+        async let audioDone: Void = withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
+            var index = 0
+            audio.requestMediaDataWhenReady(on: DispatchQueue(label: "test.audio")) {
+                while audio.isReadyForMoreMediaData {
+                    guard index < audioChunks else {
+                        audio.markAsFinished()
+                        done.resume()
+                        return
+                    }
+                    let bytes = chunk * 2
+                    var block: CMBlockBuffer?
+                    CMBlockBufferCreateWithMemoryBlock(allocator: nil, memoryBlock: nil, blockLength: bytes, blockAllocator: nil,
+                                                       customBlockSource: nil, offsetToData: 0, dataLength: bytes,
+                                                       flags: kCMBlockBufferAssureMemoryNowFlag, blockBufferOut: &block)
+                    guard let block else { continue }
+                    CMBlockBufferFillDataBytes(with: 0, blockBuffer: block, offsetIntoDestination: 0, dataLength: bytes)
+                    var sample: CMSampleBuffer?
+                    CMAudioSampleBufferCreateReadyWithPacketDescriptions(
+                        allocator: nil, dataBuffer: block, formatDescription: format, sampleCount: chunk,
+                        presentationTimeStamp: CMTime(value: CMTimeValue(index * chunk), timescale: CMTimeScale(sampleRate)),
+                        packetDescriptions: nil, sampleBufferOut: &sample)
+                    if let sample { audio.append(sample) }
+                    index += 1
+                }
+            }
+        }
+        _ = await (videoDone, audioDone)
         await writer.finishWriting()
         XCTAssertEqual(writer.status, .completed, "\(String(describing: writer.error))")
         return url
