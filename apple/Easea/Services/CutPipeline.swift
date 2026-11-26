@@ -54,7 +54,7 @@ struct CutPipeline {
         var claudeError: String?
         let hasSpeech = analyses.contains { !$0.words.isEmpty }
         if plan == nil, let claude, hasSpeech {
-            progress(analysisShare, "Claude is editing your cut")
+            progress(analysisShare, "Editing your cut")
             do {
                 plan = try await claude.plan(sources: analyses, options: options)
             } catch is CancellationError {
@@ -76,12 +76,9 @@ struct CutPipeline {
             report.editor = "Claude"
         } else {
             (edl, report) = engine.makeCut(sources: analyses)
-            if let claudeError {
-                report.editor = "On-device"
-                report.summary = "Claude was unavailable (\(claudeError)), so Easea used its on-device editor. Use “Ask Claude to re-edit” to try again."
-            } else {
-                report.editor = "On-device"
-            }
+            report.editor = "On-device"
+            // Internal only; never shown to users.
+            if let claudeError { print("Cloud editor unavailable, used on-device rules: \(claudeError)") }
         }
         let captions = CaptionBuilder.build(sources: analyses)
         progress(1, "Done")

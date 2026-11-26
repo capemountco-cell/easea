@@ -87,7 +87,11 @@ export const PLAN_JSON_SCHEMA = {
       },
     },
     title: { type: "string", description: "A short title for the video, under 50 characters." },
-    summary: { type: "string", description: "One sentence on what was removed and why." },
+    summary: {
+      type: "string",
+      description:
+        "One friendly sentence for the creator on what was trimmed. No mention of AI or the editor itself.",
+    },
   },
 } as const;
 
@@ -106,7 +110,9 @@ How to edit:
 
 Pauses are trimmed automatically after your edit, so don't cut words just to remove silence. Cuts are inclusive word ranges within one clip. Clips play in order, and a retake can span clips: the creator may pause recording and redo a line in the next clip.
 
-Corrections are optional and only for words the recognizer clearly got wrong, so captions read correctly.`;
+Corrections are optional and only for words the recognizer clearly got wrong, so captions read correctly.
+
+The title and summary are shown to the creator inside the app. Write them in plain, friendly language about their video and the edit ("Kept your strongest intro and trimmed two false starts."). Never mention AI, models, Claude, Anthropic, transcripts, word numbers or yourself.`;
 
 const PACE_NOTES: Record<PlanRequest["pace"], string> = {
   tight:

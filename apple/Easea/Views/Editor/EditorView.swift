@@ -49,7 +49,7 @@ struct EditorView: View {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button("Show time saved", systemImage: "stopwatch") { showReport = true }
-                    Button("Ask Claude to re-edit", systemImage: "sparkles") { queue.askClaudeAgain(project.id) }
+                    Button("Re-edit from scratch", systemImage: "wand.and.stars") { queue.askClaudeAgain(project.id) }
                     Button("Rebuild with current settings", systemImage: "slider.horizontal.3") { recut() }
                 } label: { Image(systemName: "ellipsis.circle") }
             }
@@ -211,9 +211,6 @@ struct EditorView: View {
             if let report = project.report {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack {
-                        if let editor = report.editor {
-                            Pill(text: "Edited by \(editor)", systemImage: editor == "Claude" ? "sparkles" : "iphone")
-                        }
                         Pill(text: "\(report.trimCount) trims", systemImage: "scissors")
                         Pill(text: "\(report.retakesRemoved) retakes", systemImage: "arrow.counterclockwise")
                         Pill(text: "\(report.fillersRemoved) fillers", systemImage: "text.badge.minus")

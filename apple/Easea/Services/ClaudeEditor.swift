@@ -29,9 +29,9 @@ enum ClaudeEditorError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notConfigured: "The Claude editor isn't set up. Add your Easea web address in You → AI editor."
+        case .notConfigured: "Editing isn't available right now."
         case .server(_, let message): message
-        case .badResponse: "The Claude editor sent a reply Easea couldn't read."
+        case .badResponse: "Editing isn't available right now."
         }
     }
 }

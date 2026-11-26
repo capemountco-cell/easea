@@ -148,7 +148,7 @@ struct CutReadyView: View {
                     Text("\(report.footageDuration.clockString) of footage · \(report.trimCount) trims · \(report.finalDuration.clockString) final")
                         .font(.footnote).foregroundStyle(.secondary)
                     if let summary = report.summary {
-                        Label(summary, systemImage: report.editor == "Claude" ? "sparkles" : "info.circle")
+                        Label(summary, systemImage: "scissors")
                             .font(.footnote)
                             .multilineTextAlignment(.leading)
                             .padding(.horizontal)
