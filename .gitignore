@@ -37,3 +37,6 @@ apple/**/.build/
 apple/**/.swiftpm/
 xcuserdata/
 DerivedData/
+
+# Local copies of CI-built IPAs
+build-output/
