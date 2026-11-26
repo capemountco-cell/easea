@@ -1,6 +1,10 @@
 # Easea
 
-Create a blank page
+AI video editor: record or import talking-to-camera videos and get the first cut made for you.
+
+- **iOS and macOS app**: see [`apple/README.md`](apple/README.md).
+- **Claude cut planner**: `POST /api/cut-plan` in this web app (`src/lib/cut-planner/`), used by the iOS/macOS app. Needs the `ANTHROPIC_API_KEY` secret in Lovable.
+- **Web**: the Lovable project below.
 
 This project was built with [Lovable](https://lovable.dev).
 

@@ -1,0 +1,82 @@
+# Generate the Xcode project with:  brew install xcodegen && xcodegen generate
+name: Easea
+options:
+  bundleIdPrefix: com.easea
+  deploymentTarget:
+    iOS: "17.0"
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+packages:
+  EaseaCore:
+    path: Packages/EaseaCore
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""   # set your Apple team ID here or in Xcode
+
+targets:
+  Easea:
+    type: application
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: Easea
+    dependencies:
+      - package: EaseaCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.easea.app
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        "ENABLE_HARDENED_RUNTIME[sdk=macosx*]": YES
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": Easea/Easea.entitlements
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Easea
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.video
+        INFOPLIST_KEY_NSCameraUsageDescription: Easea records your videos so it can edit them for you.
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: Easea records your voice so it can find your best takes.
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: Easea transcribes your recordings on this device to find retakes, rambling and dead air.
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: Easea imports videos you choose from your library.
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: Easea saves your finished edits to Photos.
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+
+  # Renders real videos on macOS to check that edits play and export.
+  EaseaRenderTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Easea/Models/Project.swift
+      - path: Easea/Services/VideoRenderer.swift
+      - path: Easea/Services/Exporter.swift
+      - path: Tests/RenderTests
+    dependencies:
+      - package: EaseaCore
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.easea.rendertests
+
+schemes:
+  Easea:
+    build:
+      targets:
+        Easea: all
+    test:
+      targets:
+        - package: EaseaCore/EaseaCoreTests
+  EaseaRenderTests:
+    build:
+      targets:
+        EaseaRenderTests: all
+    test:
+      targets:
+        - EaseaRenderTests
