@@ -15,6 +15,8 @@ final class PlayerModel {
     private(set) var loadError: String?
     private var observer: Any?
     private var buildTask: Task<Void, Never>?
+    /// Source files behind the current item; tracks stop working if these are released.
+    private var retainedAssets: [AVURLAsset] = []
 
     init() {
         observer = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 30), queue: .main) { [weak self] time in
@@ -37,6 +39,7 @@ final class PlayerModel {
                 item.audioMix = plan.audioMix
                 let resumeAt = currentTime
                 let wasPlaying = isPlaying
+                retainedAssets = plan.sourceAssets
                 player.replaceCurrentItem(with: item)
                 renderSize = plan.renderSize
                 duration = plan.composition.duration.seconds

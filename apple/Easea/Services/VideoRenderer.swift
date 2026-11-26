@@ -11,6 +11,8 @@ enum VideoRenderer {
         var videoComposition: AVMutableVideoComposition
         var audioMix: AVMutableAudioMix
         var renderSize: CGSize
+        /// The source files, retained for as long as the plan is played or exported.
+        var sourceAssets: [AVURLAsset] = []
     }
 
     /// How far each clip's audio runs into the next when "overlap audio" is on.
@@ -22,6 +24,9 @@ enum VideoRenderer {
         }
 
         struct Source {
+            /// Kept alive on purpose: a track can't be read once its asset is deallocated
+            /// (insertTimeRange then fails with -11800 / -12780).
+            var asset: AVURLAsset
             var video: AVAssetTrack?
             var audio: AVAssetTrack?
             /// Where each track actually has media. Often shorter than the file, by a few frames.
@@ -47,7 +52,7 @@ enum VideoRenderer {
                 size = natural
                 fps = rate > 0 ? rate : 30
             }
-            var source = Source(video: video, audio: audio, transform: transform, size: size, duration: duration, fps: fps)
+            var source = Source(asset: asset, video: video, audio: audio, transform: transform, size: size, duration: duration, fps: fps)
             if let video { source.videoRange = try await video.load(.timeRange) }
             if let audio { source.audioRange = try await audio.load(.timeRange) }
             sources.append(source)
@@ -120,7 +125,8 @@ enum VideoRenderer {
 
         let audioMix = AVMutableAudioMix()
         audioMix.inputParameters = mixParams
-        return Plan(composition: composition, videoComposition: videoComposition, audioMix: audioMix, renderSize: renderSize)
+        return Plan(composition: composition, videoComposition: videoComposition, audioMix: audioMix,
+                    renderSize: renderSize, sourceAssets: sources.map(\.asset))
     }
 
     /// Inserts `range` of a source track, clipped to where that track has media.
