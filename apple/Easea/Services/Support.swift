@@ -17,7 +17,7 @@ final class AppSettings {
     var defaultOverlapAudio: Bool {
         didSet { UserDefaults.standard.set(defaultOverlapAudio, forKey: "defaultOverlapAudio") }
     }
-    /// Claude (via the Easea backend) or the on-device rules.
+    /// Claude (via the web app's /api/cut-plan) or the on-device rules.
     var editorMode: EditorMode {
         didSet { UserDefaults.standard.set(editorMode.rawValue, forKey: "editorMode") }
     }

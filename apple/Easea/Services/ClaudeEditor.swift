@@ -1,11 +1,12 @@
 import Foundation
 import EaseaCore
 
-/// Where the Easea backend (see `backend/`) is deployed. Overridable in the You tab.
+/// Where the Easea web app (the Lovable project, which hosts `/api/cut-plan`) is published.
+/// Overridable in the You tab.
 enum AppConfig {
-    /// e.g. "https://easea-cut-planner.<your-subdomain>.workers.dev". Empty = not configured.
-    static let defaultPlannerURL = ""
-    /// Must match the backend's EASEA_APP_TOKEN secret.
+    /// Your published Lovable URL, e.g. "https://your-app.lovable.app". Empty = not configured.
+    static let defaultPlannerURL = "https://first-mark-canvas.lovable.app"
+    /// Must match the EASEA_APP_TOKEN secret in Lovable (leave empty if you didn't set one).
     static let defaultAppToken = ""
 }
 
@@ -28,15 +29,15 @@ enum ClaudeEditorError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notConfigured: "The Claude editor isn't set up. Add the server address in You → AI editor."
+        case .notConfigured: "The Claude editor isn't set up. Add your Easea web address in You → AI editor."
         case .server(_, let message): message
         case .badResponse: "The Claude editor sent a reply Easea couldn't read."
         }
     }
 }
 
-/// Sends the word-timed transcript (never the video) to the Easea backend, which asks Claude
-/// which words to cut. The Anthropic API key lives only on the backend.
+/// Sends the word-timed transcript (never the video) to the Easea web app's `/api/cut-plan`,
+/// which asks Claude which words to cut. The Anthropic API key lives only in Lovable's secrets.
 struct ClaudeEditor {
     var endpoint: URL
     var appToken: String
@@ -46,7 +47,7 @@ struct ClaudeEditor {
         guard settings.editorMode == .claude,
               let base = URL(string: settings.plannerURL.trimmingCharacters(in: .whitespaces)),
               base.scheme == "https" || base.host == "localhost" else { return nil }
-        endpoint = base.appendingPathComponent("v1/cut-plan")
+        endpoint = base.appendingPathComponent("api/cut-plan")
         appToken = settings.appToken
         pace = settings.pace
     }

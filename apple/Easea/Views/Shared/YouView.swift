@@ -20,7 +20,7 @@ struct YouView: View {
                         Picker("Pace", selection: $settings.pace) {
                             ForEach(EditPace.allCases) { Text($0.label).tag($0) }
                         }
-                        TextField("Server address", text: $settings.plannerURL, prompt: Text("https://…workers.dev"))
+                        TextField("Server address", text: $settings.plannerURL, prompt: Text("https://your-app.lovable.app"))
                             .autocorrectionDisabled()
                             #if os(iOS)
                             .textInputAutocapitalization(.never)
@@ -28,7 +28,7 @@ struct YouView: View {
                             #endif
                         SecureField("App token", text: $settings.appToken)
                         if ClaudeEditor(settings: settings) == nil {
-                            Label("Add your Easea server address to use Claude. Until then, cuts use the on-device editor.",
+                            Label("Add your published Lovable address to use Claude. Until then, cuts use the on-device editor.",
                                   systemImage: "exclamationmark.triangle")
                                 .font(.footnote).foregroundStyle(.orange)
                         }

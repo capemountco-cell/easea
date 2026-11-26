@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
-import { buildUserPrompt, renderTranscript, sanitizePlan, type PlanRequest } from "./planner";
-import { handle } from "./index";
+import {
+  buildUserPrompt,
+  renderTranscript,
+  sanitizePlan,
+  type PlanRequest,
+} from "./planner.server";
+import { handleCutPlan } from "./handler.server";
 
 function words(script: string, t0 = 0): PlanRequest["sources"][number]["words"] {
   let t = t0;
@@ -102,9 +107,9 @@ describe("handle", () => {
     });
 
   it("requires the app token when configured", async () => {
-    const res = await handle(
+    const res = await handleCutPlan(
       post(request),
-      { ANTHROPIC_API_KEY: "k", EASEA_APP_TOKEN: "secret" },
+      { apiKey: "k", appToken: "secret" },
       fakeClient({}),
     );
     expect(res.status).toBe(401);
@@ -117,9 +122,9 @@ describe("handle", () => {
       title: "Show you this",
       summary: "Kept the second take.",
     };
-    const res = await handle(
+    const res = await handleCutPlan(
       post(request, "secret"),
-      { ANTHROPIC_API_KEY: "k", EASEA_APP_TOKEN: "secret" },
+      { apiKey: "k", appToken: "secret" },
       fakeClient(reply),
     );
     expect(res.status).toBe(200);
@@ -127,12 +132,21 @@ describe("handle", () => {
   });
 
   it("maps a refusal to 422", async () => {
-    const res = await handle(post(request), { ANTHROPIC_API_KEY: "k" }, fakeClient({}, "refusal"));
+    const res = await handleCutPlan(
+      post(request),
+      { apiKey: "k", appToken: undefined },
+      fakeClient({}, "refusal"),
+    );
     expect(res.status).toBe(422);
   });
 
+  it("reports a missing API key as unavailable", async () => {
+    const res = await handleCutPlan(post(request), { apiKey: undefined, appToken: undefined });
+    expect(res.status).toBe(503);
+  });
+
   it("rejects malformed requests", async () => {
-    const res = await handle(post({ sources: [] }), { ANTHROPIC_API_KEY: "k" });
+    const res = await handleCutPlan(post({ sources: [] }), { apiKey: "k", appToken: undefined });
     expect(res.status).toBe(400);
   });
 });

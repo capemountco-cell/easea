@@ -35,15 +35,15 @@ leaves the phone**.
    measured in 10 ms windows.
 2. **Transcript** (on device): Apple's Speech framework transcribes the audio with word timings
    (`Transcriber`).
-3. **Claude decides what to cut** (`ClaudeEditor` → [`backend/`](../backend)): the word-timed
-   transcript goes to the Easea backend, which asks Claude (`claude-opus-5-5`) for a cut plan.
+3. **Claude decides what to cut** (`ClaudeEditor` → `POST /api/cut-plan` in the Lovable web app,
+   [`src/lib/cut-planner/`](../src/lib/cut-planner)): the word-timed transcript goes to the web app, which asks Claude (`claude-opus-5-5`) for a cut plan.
    The plan marks:
    - retakes (the last good take of each line is kept, even across clips);
    - false starts, stumbles and off-camera talk ("okay, one more time");
    - filler words and rambling, depending on the Pace setting (Tight / Natural / Relaxed).
 
    It also suggests a title and fixes misheard words, such as brand names, in the captions.
-   The Anthropic API key lives only on the backend.
+   The Anthropic API key lives only in Lovable's secrets.
 4. **Clips** (`EaseaCore/AutoCutEngine`): the kept words become clips. Pauses are tightened
    using the loudness data. Clips with no speech fall back to loudness, so b-roll with sound
    isn't lost.
@@ -60,9 +60,18 @@ transcript again.
 
 ### Set up Claude
 
-Deploy the backend (see [`backend/README.md`](../backend/README.md)), then enter its address
-and app token in **You → AI editor**. You can also set `AppConfig` in
-`Easea/Services/ClaudeEditor.swift` so builds ship with them.
+1. In Lovable, add the secret `ANTHROPIC_API_KEY` (`CLAUDE_API_KEY` also works). Optionally add
+   `EASEA_APP_TOKEN` (any long random string) so only your app can call the endpoint.
+2. Merge this branch into `main` and publish in Lovable, so `/api/cut-plan` goes live.
+3. In the app, open **You → AI editor** and enter your published Lovable URL (and the token,
+   if you set one). Or set `AppConfig` in `Easea/Services/ClaudeEditor.swift` so builds ship
+   with them.
+
+## Get an IPA for sideloading
+
+The **iOS build** GitHub Actions workflow (`.github/workflows/ios.yml`) builds an unsigned
+`Easea.ipa` on a macOS runner every time `apple/` changes. Download it from the run's
+**Artifacts** section, then open it in Sideloadly, which signs it with your Apple ID.
 
 ## Code layout
 
@@ -91,9 +100,9 @@ environment with no Swift toolchain. Expect a short round of compiler fixes on t
   (`beginBackgroundTask`). For long batches, either adopt `BGContinuedProcessingTask` (iOS 26)
   or upload to a server that does the cut and sends a push notification. With a server, the
   device can be locked for the whole batch.
-- **Per-video notes for Claude** ("keep the joke at the end"). The backend already accepts an
+- **Per-video notes for Claude** ("keep the joke at the end"). `/api/cut-plan` already accepts an
   `instructions` field.
-- **User accounts and App Attest** on the backend, before a public launch.
+- **User accounts and App Attest** on `/api/cut-plan`, before a public launch.
 - **SpeechAnalyzer** (iOS 26 / macOS 26) for better long-form transcription. `Transcriber`
   only needs to return the same `[Word]`.
 - Drag-to-trim handles and pinch-to-zoom on the timeline. Word-level highlight captions.
