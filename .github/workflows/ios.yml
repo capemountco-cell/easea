@@ -32,6 +32,16 @@ jobs:
           brew install xcodegen
           xcodegen generate
 
+      - name: Video rendering tests (real files, macOS)
+        working-directory: apple
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Easea.xcodeproj -scheme EaseaRenderTests \
+            -destination 'platform=macOS' -derivedDataPath build-tests \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= \
+            | tee render-tests.log | grep -E "error:|Test Case .*(passed|failed)|XCTAssert|TEST (SUCCEEDED|FAILED)"
+
       - name: Build for iOS (unsigned)
         working-directory: apple
         run: |
@@ -72,5 +82,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-logs
-          path: apple/build-ios.log
+          path: |
+            apple/build-ios.log
+            apple/render-tests.log
           if-no-files-found: ignore

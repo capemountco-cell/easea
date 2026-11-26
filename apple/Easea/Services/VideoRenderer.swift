@@ -21,7 +21,17 @@ enum VideoRenderer {
             throw CocoaError(.fileReadUnknown, userInfo: [NSLocalizedDescriptionKey: "Nothing to render yet."])
         }
 
-        struct Source { var video: AVAssetTrack?; var audio: AVAssetTrack?; var transform: CGAffineTransform; var size: CGSize; var duration: Double; var fps: Float }
+        struct Source {
+            var video: AVAssetTrack?
+            var audio: AVAssetTrack?
+            /// Where each track actually has media. Often shorter than the file, by a few frames.
+            var videoRange: CMTimeRange = .invalid
+            var audioRange: CMTimeRange = .invalid
+            var transform: CGAffineTransform
+            var size: CGSize
+            var duration: Double
+            var fps: Float
+        }
         var sources: [Source] = []
         for url in sourceURLs {
             let asset = AVURLAsset(url: url)
@@ -37,7 +47,10 @@ enum VideoRenderer {
                 size = natural
                 fps = rate > 0 ? rate : 30
             }
-            sources.append(Source(video: video, audio: audio, transform: transform, size: size, duration: duration, fps: fps))
+            var source = Source(video: video, audio: audio, transform: transform, size: size, duration: duration, fps: fps)
+            if let video { source.videoRange = try await video.load(.timeRange) }
+            if let audio { source.audioRange = try await audio.load(.timeRange) }
+            sources.append(source)
         }
 
         // Output size follows the first clip's (rotated) orientation.
@@ -67,7 +80,8 @@ enum VideoRenderer {
             let duration = CMTime(seconds: clip.duration, preferredTimescale: timescale)
 
             if let video = src.video {
-                try videoTrack.insertTimeRange(CMTimeRange(start: start, duration: duration), of: video, at: cursor)
+                try insert(CMTimeRange(start: start, duration: duration), of: video, available: src.videoRange,
+                           into: videoTrack, at: cursor)
                 layer.setTransform(fitTransform(src.transform, natural: src.size, into: renderSize), at: cursor)
             } else {
                 videoTrack.insertEmptyTimeRange(CMTimeRange(start: cursor, duration: duration))
@@ -78,7 +92,8 @@ enum VideoRenderer {
                 let isLast = i == edl.clips.count - 1
                 let tail = isLast ? 0 : min(overlap, max(0, src.duration - clip.end))
                 let range = CMTimeRange(start: start, duration: CMTime(seconds: clip.duration + tail, preferredTimescale: timescale))
-                try audioTracks[t].insertTimeRange(range, of: audio, at: cursor)
+                try insert(range, of: audio, available: src.audioRange, into: audioTracks[t], at: cursor,
+                           padToFullLength: false)
                 if tail > 0 {
                     let fade = CMTimeRange(start: cursor + duration, duration: CMTime(seconds: tail, preferredTimescale: timescale))
                     mixParams[t].setVolumeRamp(fromStartVolume: 1, toEndVolume: 0, timeRange: fade)
@@ -90,8 +105,12 @@ enum VideoRenderer {
             cursor = cursor + duration
         }
 
+        guard cursor > .zero else {
+            throw CocoaError(.fileReadCorruptFile, userInfo: [NSLocalizedDescriptionKey: "This video couldn't be loaded."])
+        }
         let instruction = AVMutableVideoCompositionInstruction()
-        instruction.timeRange = CMTimeRange(start: .zero, duration: cursor)
+        // Must cover the whole composition, or playback and export fail.
+        instruction.timeRange = CMTimeRange(start: .zero, duration: max(cursor, composition.duration))
         instruction.layerInstructions = [layer]
 
         let videoComposition = AVMutableVideoComposition()
@@ -102,6 +121,26 @@ enum VideoRenderer {
         let audioMix = AVMutableAudioMix()
         audioMix.inputParameters = mixParams
         return Plan(composition: composition, videoComposition: videoComposition, audioMix: audioMix, renderSize: renderSize)
+    }
+
+    /// Inserts `range` of a source track, clipped to where that track has media.
+    /// Asking for time past a track's end throws, and phone videos often have a video track
+    /// a few frames shorter than the file. With `padToFullLength`, any missing part is filled
+    /// with an empty segment so following clips stay in sync.
+    static func insert(_ range: CMTimeRange, of track: AVAssetTrack, available: CMTimeRange,
+                       into target: AVMutableCompositionTrack, at time: CMTime, padToFullLength: Bool = true) throws {
+        let usable = available.isValid ? range.intersection(available) : range
+        let lead = usable.isEmpty ? range.duration : max(.zero, usable.start - range.start)
+        if padToFullLength, lead > .zero {
+            target.insertEmptyTimeRange(CMTimeRange(start: time, duration: lead))
+        }
+        if !usable.isEmpty, usable.duration > .zero {
+            try target.insertTimeRange(usable, of: track, at: time + (padToFullLength ? lead : usable.start - range.start))
+        }
+        let filled = (padToFullLength ? lead : .zero) + (usable.isEmpty ? .zero : usable.duration)
+        if padToFullLength, filled < range.duration {
+            target.insertEmptyTimeRange(CMTimeRange(start: time + filled, duration: range.duration - filled))
+        }
     }
 
     /// Rotates a track upright and fits it inside the render area.

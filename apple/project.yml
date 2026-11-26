@@ -48,6 +48,23 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
 
+  # Renders real videos on macOS to check that edits play and export.
+  EaseaRenderTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Easea/Models/Project.swift
+      - path: Easea/Services/VideoRenderer.swift
+      - path: Easea/Services/Exporter.swift
+      - path: Tests/RenderTests
+    dependencies:
+      - package: EaseaCore
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.easea.rendertests
+
 schemes:
   Easea:
     build:
@@ -56,3 +73,10 @@ schemes:
     test:
       targets:
         - package: EaseaCore/EaseaCoreTests
+  EaseaRenderTests:
+    build:
+      targets:
+        EaseaRenderTests: all
+    test:
+      targets:
+        - EaseaRenderTests

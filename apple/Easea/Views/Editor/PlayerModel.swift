@@ -44,7 +44,8 @@ final class PlayerModel {
                 seek(to: min(resumeAt, max(0, duration - 0.05)))
                 if wasPlaying { player.play() }
             } catch {
-                loadError = error.localizedDescription
+                print("Couldn't build preview: \(error)")
+                loadError = "This video couldn't be loaded. Try Rebuild from the ••• menu."
             }
         }
     }
